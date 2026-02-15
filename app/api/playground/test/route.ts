@@ -48,6 +48,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
     }
 
+    // Call the Python backend
+    const backendResponse = await fetch(`${BACKEND_URL}/v1/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+      },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: message }],
+        model,
+        provider: 'openai',
+        tenant_id: session.user.id,
+        project_id: 'playground',
+      }),
+    })
+
+    if (!backendResponse.ok) {
+      const errorData = await backendResponse.json().catch(() => ({}))
+      throw new Error(errorData.detail || errorData.error || 'Backend request failed')
+    }
+
     // Use optimizer stats if available; fallback to rough estimate
     const backendData = await backendResponse.json()
     const optimizerStats = backendData.optimizer?.stats || {}
