@@ -8,6 +8,107 @@ from collections import defaultdict
 from app.core.blocks import Block, BlockType
 
 
+_ZERO_WIDTH_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
+
+
+def _normalize_whitespace_text(
+    text: str,
+    *,
+    strip: bool = True,
+    trim_trailing_ws: bool = True,
+    collapse_blank_lines: bool = True,
+    max_blank_lines: int = 2,
+) -> str:
+    """
+    Conservative whitespace normalization:
+    - normalize newlines to \\n
+    - remove zero-width characters
+    - trim trailing whitespace per-line
+    - optionally collapse runs of blank lines
+    - optionally strip leading/trailing whitespace
+
+    Intentionally does NOT collapse internal spaces or change indentation.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Normalize newlines first.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Remove invisible zero-width characters.
+    text = _ZERO_WIDTH_RE.sub("", text)
+
+    lines = text.split("\n")
+    if trim_trailing_ws:
+        lines = [ln.rstrip(" \t") for ln in lines]
+
+    if collapse_blank_lines:
+        out: List[str] = []
+        blanks = 0
+        for ln in lines:
+            if ln.strip() == "":
+                blanks += 1
+                if blanks <= max_blank_lines:
+                    out.append("")
+                continue
+            blanks = 0
+            out.append(ln)
+        lines = out
+
+    text = "\n".join(lines)
+    if strip:
+        text = text.strip()
+    return text
+
+
+def clean_whitespace(blocks: List[Block], config: dict) -> List[Block]:
+    """
+    Apply very basic whitespace cleanup to reduce token noise.
+
+    Defaults:
+    - enabled
+    - skip system/constraint blocks (safer)
+    """
+    if not config.get("enable_whitespace_cleanup", True):
+        return blocks
+
+    from app.core.utils import count_tokens
+
+    skip_types = set(config.get("whitespace_cleanup_skip_types", ["system", "constraint"]))
+
+    cleaned: List[Block] = []
+    for b in blocks:
+        if b.type.value in skip_types:
+            cleaned.append(b)
+            continue
+
+        has_code_fence = "```" in (b.content or "")
+        new_content = _normalize_whitespace_text(
+            b.content,
+            # Be extra conservative around code fences.
+            strip=(not has_code_fence),
+            trim_trailing_ws=True,
+            collapse_blank_lines=(not has_code_fence),
+            max_blank_lines=int(config.get("max_blank_lines", 2)),
+        )
+
+        if new_content == b.content:
+            cleaned.append(b)
+            continue
+
+        meta = dict(b.metadata)
+        meta["whitespace_cleaned"] = True
+        cleaned.append(Block.create(
+            block_type=b.type,
+            content=new_content,
+            tokens=count_tokens(new_content),
+            must_keep=b.must_keep,
+            priority=b.priority,
+            **meta,
+        ))
+
+    return cleaned
+
+
 def remove_junk(blocks: List[Block]) -> List[Block]:
     """
     Remove empty/whitespace blocks.
@@ -447,7 +548,8 @@ def apply_heuristics(blocks: List[Block], config: dict) -> List[Block]:
     Returns:
         Optimized blocks
     """
-    from app.core.utils import count_tokens
+    # Stage 0: Whitespace cleanup (very conservative)
+    blocks = clean_whitespace(blocks, config)
 
     # Stage 1: Remove junk
     blocks = remove_junk(blocks)
@@ -459,13 +561,10 @@ def apply_heuristics(blocks: List[Block], config: dict) -> List[Block]:
     keep_n = config.get("keep_last_n_turns", 4)
     blocks = keep_last_n_turns(blocks, n=keep_n)
 
-    # Stage 4: Extract constraints (only keep if it reduces tokens)
+    # Stage 4: Extract constraints (guardrailed inside extract_constraints)
     constraint_block = extract_constraints(blocks)
     if constraint_block:
-        tokens_before_constraints = count_tokens(blocks)
-        candidate = [constraint_block] + blocks
-        if count_tokens(candidate) <= tokens_before_constraints:
-            blocks = candidate
+        blocks = [constraint_block] + blocks
 
     # Stage 5: Minimize tool schemas (if enabled)
     if config.get("enable_tool_minimization", True):
