@@ -33,7 +33,7 @@ class CompressionConfig(BaseModel):
     fallback_to_extractive: bool = True
     # Aggressive token-saving option: allow compressing must_keep blocks when needed.
     # System/constraint blocks are still never compressed.
-    allow_must_keep: bool = False
+    allow_must_keep: bool = True
     force_tokens: List[str] = Field(default_factory=lambda: ["\n", ".", "!", "?", "```", ":", ";"])
 
 

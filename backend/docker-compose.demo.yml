@@ -25,7 +25,7 @@ services:
       # Demo: aggressive compression.
       # If LLMLingua is not installed, it falls back to extractive summarization.
       COMPRESSION__ENABLED: "true"
-      # Better quality: do not compress the most-recent/must_keep turns.
-      COMPRESSION__ALLOW_MUST_KEEP: "false"
+      # Aggressive: compress must_keep blocks too (system/constraint are still protected).
+      COMPRESSION__ALLOW_MUST_KEEP: "true"
       COMPRESSION__COMPRESSION_RATIO: "0.35"
       COMPRESSION__FAITHFULNESS_THRESHOLD: "0.75"
