@@ -1,11 +1,36 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
-import { useSearchParams } from 'next/navigation'
+import { signIn, useSession } from 'next-auth/react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function SignInPage() {
+  const { data: session, status } = useSession()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      window.location.href = callbackUrl
+    }
+  }, [status, callbackUrl])
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <p className="text-zinc-500">Loading...</p>
+      </div>
+    )
+  }
+
+  if (status === 'authenticated') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <p className="text-zinc-500">Redirecting...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black">
