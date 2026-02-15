@@ -309,6 +309,14 @@ class OptimizationPipeline:
             "latency_ms": latency_ms
         }
 
+        # Guardrail: never return a prompt that grew. If tokens_after > tokens_before,
+        # revert to the original canonicalized messages and zero out savings.
+        if tokens_after > tokens_before:
+            optimized_messages = messages  # original input messages
+            stats["tokens_after"] = tokens_before
+            stats["tokens_saved"] = 0
+            stats["compression_ratio"] = 0.0
+
         # Build block info
         selected_blocks = [
             {
