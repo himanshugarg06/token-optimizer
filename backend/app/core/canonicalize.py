@@ -111,9 +111,18 @@ def rag_context_to_blocks(rag_context: Optional[List[Dict[str, Any]]], model: st
     blocks = []
 
     for i, doc in enumerate(rag_context):
-        content = doc.get("text", "")
-        doc_id = doc.get("id", f"doc-{i}")
-        source = doc.get("source", "rag")
+        # Accept common RAG doc shapes:
+        # - {"text": "..."} (legacy)
+        # - {"content": "...", "metadata": {...}} (used by test_e2e.py)
+        # - {"page_content": "..."} (langchain-ish)
+        metadata = doc.get("metadata") or {}
+        content = doc.get("text") or doc.get("content") or doc.get("page_content") or ""
+        doc_id = doc.get("id") or metadata.get("id") or f"doc-{i}"
+        source = doc.get("source") or metadata.get("source") or metadata.get("type") or "rag"
+
+        # If we can't find any content, skip to avoid wasting tokens on empty blocks.
+        if not str(content).strip():
+            continue
 
         tokens = count_tokens(content, model)
 
