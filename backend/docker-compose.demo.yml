@@ -15,6 +15,7 @@ services:
       # Demo: enable semantic selection if you have sentence-transformers installed.
       # If not installed, it gracefully no-ops.
       - SEMANTIC__ENABLED=${SEMANTIC__ENABLED:-true}
+      - SEMANTIC__EMBEDDING_MODEL=${SEMANTIC__EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
       - SEMANTIC__VECTOR_TOPK=${SEMANTIC__VECTOR_TOPK:-12}
       - SEMANTIC__MMR_LAMBDA=${SEMANTIC__MMR_LAMBDA:-0.6}
       - SEMANTIC__BATCH_SIZE=${SEMANTIC__BATCH_SIZE:-64}
@@ -22,6 +23,7 @@ services:
       # Demo: aggressive compression.
       # If LLMLingua is not installed, it falls back to extractive summarization.
       - COMPRESSION__ENABLED=${COMPRESSION__ENABLED:-true}
-      - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-true}
+      # Better quality: do not compress the most-recent/must_keep turns.
+      - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-false}
       - COMPRESSION__COMPRESSION_RATIO=${COMPRESSION__COMPRESSION_RATIO:-0.35}
       - COMPRESSION__FAITHFULNESS_THRESHOLD=${COMPRESSION__FAITHFULNESS_THRESHOLD:-0.75}
