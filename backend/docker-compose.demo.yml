@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  token-optimizer:
+    environment:
+      # Demo: force aggressive input shrinking so token savings are obvious.
+      - MAX_INPUT_TOKENS=${MAX_INPUT_TOKENS:-2000}
+      - KEEP_LAST_N_TURNS=${KEEP_LAST_N_TURNS:-1}
+      - SAFETY_MARGIN_TOKENS=${SAFETY_MARGIN_TOKENS:-200}
+
+      # Ensure tool schemas get minimized (big win for function/tool heavy prompts).
+      # These are optimizer config keys (merged in app/main.py).
+      # Pass per-request overrides if you need allowlist control.
+
+      # Demo: enable semantic selection if you have sentence-transformers installed.
+      # If not installed, it gracefully no-ops.
+      - SEMANTIC__ENABLED=${SEMANTIC__ENABLED:-true}
+      - SEMANTIC__VECTOR_TOPK=${SEMANTIC__VECTOR_TOPK:-12}
+      - SEMANTIC__MMR_LAMBDA=${SEMANTIC__MMR_LAMBDA:-0.6}
+      - SEMANTIC__BATCH_SIZE=${SEMANTIC__BATCH_SIZE:-64}
+
+      # Demo: aggressive compression.
+      # If LLMLingua is not installed, it falls back to extractive summarization.
+      - COMPRESSION__ENABLED=${COMPRESSION__ENABLED:-true}
+      - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-true}
+      - COMPRESSION__COMPRESSION_RATIO=${COMPRESSION__COMPRESSION_RATIO:-0.35}
+      - COMPRESSION__FAITHFULNESS_THRESHOLD=${COMPRESSION__FAITHFULNESS_THRESHOLD:-0.75}

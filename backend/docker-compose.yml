@@ -16,19 +16,29 @@ services:
       - DASHBOARD_ENABLED=${DASHBOARD_ENABLED:-true}
       - MOCK_DASHBOARD=${MOCK_DASHBOARD:-true}
       # New nested configuration format
-      # Fast-iteration defaults: keep heavyweight model features off unless explicitly enabled.
-      - SEMANTIC__ENABLED=${SEMANTIC__ENABLED:-false}
+      # Demo-friendly defaults:
+      # - semantic selection ON (biggest token win when over budget)
+      # - compression ON (extractive fallback by default; LLMLingua optional)
+      # - smaller budgets to make savings obvious
+      - SEMANTIC__ENABLED=${SEMANTIC__ENABLED:-true}
+      - SEMANTIC__EMBEDDING_MODEL=${SEMANTIC__EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+      - SEMANTIC__VECTOR_TOPK=${SEMANTIC__VECTOR_TOPK:-12}
+      - SEMANTIC__MMR_LAMBDA=${SEMANTIC__MMR_LAMBDA:-0.6}
+      - SEMANTIC__BATCH_SIZE=${SEMANTIC__BATCH_SIZE:-64}
       - SEMANTIC__POSTGRES_URL=${SEMANTIC__POSTGRES_URL:-postgresql://postgres:postgres@postgres:5432/optimizer}
       # Enable compression by default (uses extractive fallback if LLMLingua not installed).
       - COMPRESSION__ENABLED=${COMPRESSION__ENABLED:-true}
-      - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-true}
+      # Keep must_keep uncompressed for better output quality.
+      - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-false}
+      - COMPRESSION__COMPRESSION_RATIO=${COMPRESSION__COMPRESSION_RATIO:-0.35}
+      - COMPRESSION__FAITHFULNESS_THRESHOLD=${COMPRESSION__FAITHFULNESS_THRESHOLD:-0.8}
 
       # Legacy flags (backward compatibility) - set to true to enable
       - ENABLE_SEMANTIC_RETRIEVAL=${ENABLE_SEMANTIC_RETRIEVAL:-false}
       - ENABLE_TOON_COMPRESSION=${ENABLE_TOON_COMPRESSION:-false}
-      - MAX_INPUT_TOKENS=${MAX_INPUT_TOKENS:-8000}
-      - KEEP_LAST_N_TURNS=${KEEP_LAST_N_TURNS:-2}
-      - SAFETY_MARGIN_TOKENS=${SAFETY_MARGIN_TOKENS:-300}
+      - MAX_INPUT_TOKENS=${MAX_INPUT_TOKENS:-2000}
+      - KEEP_LAST_N_TURNS=${KEEP_LAST_N_TURNS:-1}
+      - SAFETY_MARGIN_TOKENS=${SAFETY_MARGIN_TOKENS:-200}
       - LOG_LEVEL=INFO
     depends_on:
       redis:
