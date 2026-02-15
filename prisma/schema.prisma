@@ -1,0 +1,157 @@
+// Token Optimizer - Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+
+  // OAuth fields
+  accounts      Account[]
+  sessions      Session[]
+
+  // Relations
+  apiKeys       ApiKey[]
+  rules         OptimizationRule?
+  usageRecords  UsageRecord[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+}
+
+// NextAuth required models
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// API Key Model
+model ApiKey {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  keyHash       String    @unique
+  keyPrefix     String
+  lastUsedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageRecords  UsageRecord[]
+
+  @@index([userId])
+  @@index([keyHash])
+  @@index([isActive])
+}
+
+// Optimization Rules Model
+model OptimizationRule {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+
+  // History settings
+  maxHistoryMessages    Int      @default(10)
+  includeSystemMessages Boolean  @default(true)
+
+  // Token limits
+  maxTokensPerCall      Int      @default(4096)
+  maxInputTokens        Int?
+
+  // Optimization preferences
+  aggressiveness        String   @default("medium")
+  preserveCodeBlocks    Boolean  @default(true)
+  preserveFormatting    Boolean  @default(true)
+
+  // Cost settings
+  targetCostReduction   Float    @default(0.30)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Usage Record Model
+model UsageRecord {
+  id                    String   @id @default(cuid())
+  userId                String
+  apiKeyId              String
+
+  // Request details
+  model                 String
+  endpoint              String
+
+  // Token usage
+  originalInputTokens   Int
+  originalOutputTokens  Int
+  optimizedInputTokens  Int
+  optimizedOutputTokens Int
+  tokensSaved           Int
+
+  // Cost calculations
+  originalCost          Float
+  optimizedCost         Float
+  costSaved             Float
+
+  // Metadata
+  latencyMs             Int?
+  success               Boolean  @default(true)
+  errorMessage          String?
+
+  timestamp             DateTime @default(now())
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey                ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@index([apiKeyId, timestamp])
+  @@index([timestamp])
+}
