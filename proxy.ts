@@ -8,5 +8,11 @@ export const proxy = withAuth({
 })
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/keys/:path*', '/api/rules/:path*', '/api/analytics/:path*'],
+  // Exclude /api/keys/validate so backend validation can call it without NextAuth
+  matcher: [
+    '/dashboard/:path*',
+    '/api/keys/:path((?!validate).*)',
+    '/api/rules/:path*',
+    '/api/analytics/:path*',
+  ],
 }
