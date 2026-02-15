@@ -30,7 +30,10 @@ async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
     # Fallback: validate against dashboard (Next) API keys
     if settings.dashboard_enabled and settings.dashboard_base_url:
         try:
-            url = f"{settings.dashboard_base_url.rstrip('/')}/api/keys/validate"
+            base = settings.dashboard_base_url.rstrip("/")
+            if base.endswith("/api"):
+                base = base[:-4]  # strip trailing /api to avoid double /api/api
+            url = f"{base}/api/keys/validate"
             async with httpx.AsyncClient(timeout=3.0) as client:
                 resp = await client.post(url, json={"apiKey": api_key})
             if resp.status_code == 200:
