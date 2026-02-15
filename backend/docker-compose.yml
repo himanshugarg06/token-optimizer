@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  token-optimizer:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MIDDLEWARE_API_KEY=${MIDDLEWARE_API_KEY:-dev-key-12345}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/optimizer
+      - DASHBOARD_BASE_URL=${DASHBOARD_BASE_URL:-http://token-optimizer:8000/mock}
+      - DASHBOARD_API_KEY=${DASHBOARD_API_KEY:-dev-key-12345}
+      - DASHBOARD_ENABLED=${DASHBOARD_ENABLED:-true}
+      - MOCK_DASHBOARD=${MOCK_DASHBOARD:-true}
+      - ENABLE_SEMANTIC_RETRIEVAL=false
+      - ENABLE_TOON_COMPRESSION=false
+      - MAX_INPUT_TOKENS=8000
+      - KEEP_LAST_N_TURNS=4
+      - SAFETY_MARGIN_TOKENS=300
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: optimizer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres-data:
