@@ -84,7 +84,7 @@ class OptimizationPipeline:
             if self.settings.semantic.enabled:
                 try:
                     from app.optimizers.semantic import UtilityScorer
-                    self._utility_scorer = UtilityScorer()
+                    self._utility_scorer = UtilityScorer(self.settings.semantic)
                     logger.info("Utility scorer initialized")
                 except Exception as e:
                     logger.error(f"Failed to load utility scorer: {e}")

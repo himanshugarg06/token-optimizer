@@ -125,6 +125,30 @@ class VectorStore:
             logger.error(f"Failed to create connection pool: {e}")
             return None
 
+    @property
+    def available(self) -> bool:
+        """Check if vector store is available"""
+        return self.pool is not None
+
+    def health_check(self) -> bool:
+        """
+        Simple health check - tries to execute a basic query.
+        Returns True if connection is healthy.
+        """
+        if not self.available:
+            return False
+
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1;")
+                cursor.fetchone()
+                cursor.close()
+                return True
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return False
+
     @contextmanager
     def _get_connection(self):
         """Context manager for connection handling"""

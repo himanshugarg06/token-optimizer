@@ -318,8 +318,9 @@ async def health():
         try:
             from app.optimizers.semantic import VectorStore
             test_store = VectorStore(settings.semantic.postgres_url)
-            postgres_status = "connected" if test_store.available else "disconnected"
-        except Exception:
+            postgres_status = "connected" if test_store.health_check() else "disconnected"
+        except Exception as e:
+            logger.error(f"Postgres health check failed: {e}")
             postgres_status = "error"
 
     # Check Dashboard
