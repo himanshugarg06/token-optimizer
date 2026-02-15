@@ -48,46 +48,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
     }
 
-    // Calculate original tokens (rough estimate)
-    const originalTokens = Math.ceil(message.length / 4)
-
-    // Call the Python backend
-    const backendResponse = await fetch(`${BACKEND_URL}/v1/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey,
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: 'user', content: message },
-        ],
-        model,
-        provider: 'openai',
-        tenant_id: session.user.id,
-        project_id: 'playground',
-      }),
-    })
-
-    if (!backendResponse.ok) {
-      const errorData = await backendResponse.json().catch(() => ({}))
-      throw new Error(errorData.detail || errorData.error || 'Backend request failed')
-    }
-
-    const data = await backendResponse.json()
+    // Use optimizer stats if available; fallback to rough estimate
+    const backendData = await backendResponse.json()
+    const optimizerStats = backendData.optimizer?.stats || {}
+    const originalTokens = optimizerStats.tokens_before ?? Math.ceil(message.length / 4)
 
     // Extract the response and stats
-    const response = data.choices?.[0]?.message?.content || 'No response'
-    const optimizerStats = data.optimizer?.stats || {}
+    const response = backendData.choices?.[0]?.message?.content || 'No response'
 
-    // Calculate costs (approximate)
+    // Calculate costs (approximate) using backend token counts
     const costPerTokenInput = 0.00000015 // $0.15 per 1M tokens for gpt-4o-mini
-    const originalCost = originalTokens * costPerTokenInput
-    const optimizedTokens = optimizerStats.tokens_after || originalTokens
+    const optimizedTokens = optimizerStats.tokens_after ?? originalTokens
     const optimizedCost = optimizedTokens * costPerTokenInput
-    const tokensSaved = originalTokens - optimizedTokens
-    const costSaved = originalCost - optimizedCost
-    const savingsPercent = originalTokens > 0 ? Math.round((tokensSaved / originalTokens) * 100) : 0
+    const originalCost = originalTokens * costPerTokenInput
+    const tokensSaved = Math.max(0, originalTokens - optimizedTokens)
+    const costSaved = Math.max(0, originalCost - optimizedCost)
+    const savingsPercent = originalTokens > 0 ? Math.max(0, Math.round((tokensSaved / originalTokens) * 100)) : 0
 
     return NextResponse.json({
       response,
