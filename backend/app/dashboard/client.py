@@ -57,7 +57,7 @@ class DashboardClient:
             return None
 
         try:
-            url = f"{self.base_url}/v1/config/{tenant_id}/{project_id}"
+            url = f"{self.base_url}/api/config/{tenant_id}/{project_id}"
             headers = {"X-API-Key": self.api_key}
 
             response = await self.http.get(url, headers=headers)
@@ -87,7 +87,7 @@ class DashboardClient:
             return
 
         try:
-            url = f"{self.base_url}/v1/events"
+            url = f"{self.base_url}/api/events"
             headers = {
                 "X-API-Key": self.api_key,
                 "X-Source": "token-optimizer-middleware",
@@ -95,8 +95,8 @@ class DashboardClient:
             }
 
             # Fire-and-forget (don't await response)
-            await self.http.post(url, json=event, headers=headers)
-            logger.debug(f"Emitted event: {event.get('event_type')}")
+            response = await self.http.post(url, json=event, headers=headers)
+            logger.info(f"Emitted event: {event.get('event_type')}, status: {response.status_code}")
 
         except Exception as e:
             # Log but don't fail - events are best-effort

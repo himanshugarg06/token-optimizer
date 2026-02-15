@@ -16,7 +16,8 @@ async def emit_optimization_event(
     trace_id: str,
     stats: Dict[str, Any],
     provider: Optional[str] = None,
-    model: str = "gpt-4"
+    model: str = "gpt-4",
+    endpoint: str = "/v1/optimize"
 ):
     """
     Emit optimization event to dashboard.
@@ -30,36 +31,36 @@ async def emit_optimization_event(
         stats: Optimization statistics
         provider: LLM provider (if applicable)
         model: Model name
+        endpoint: API endpoint used
     """
     if not dashboard_client or not dashboard_client.enabled:
         return
 
     try:
+        # Get API key prefix from stats if available
+        api_key_prefix = stats.get("api_key_prefix")
+
         event = {
-            "event_type": "token_optimizer.request",
+            "event_type": "optimization",
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "tenant_id": tenant_id or "unknown",
             "project_id": project_id or "unknown",
-            "request_id": request_id or trace_id,
-            "trace_id": trace_id,
-            "target": {
-                "provider": provider or "none",
-                "model": model
-            },
+            "api_key_prefix": api_key_prefix,
+            "model": model,
+            "endpoint": endpoint,
             "stats": {
                 "tokens_before": stats.get("tokens_before", 0),
                 "tokens_after": stats.get("tokens_after", 0),
                 "tokens_saved": stats.get("tokens_saved", 0),
                 "compression_ratio": stats.get("compression_ratio", 0.0),
                 "latency_ms": stats.get("latency_ms", 0),
-                "cache_hit": stats.get("cache_hit", False),
-                "route": stats.get("route", "unknown"),
-                "fallback_used": stats.get("fallback_used", False)
-            }
+            },
+            "success": True
         }
 
         # Emit event (async, non-blocking)
         await dashboard_client.emit_event(event)
+        logger.info(f"Emitted optimization event: tenant={tenant_id}, tokens_saved={stats.get('tokens_saved', 0)}")
 
     except Exception as e:
         logger.warning(f"Event emission failed: {e}")

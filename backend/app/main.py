@@ -147,7 +147,8 @@ async def optimize_endpoint(
                 request_id=None,
                 trace_id=result["debug"]["trace_id"],
                 stats=result["stats"],
-                model=request.model
+                model=request.model,
+                endpoint="/v1/optimize"
             )
 
         # Build response
@@ -270,7 +271,8 @@ async def chat_endpoint(
                 trace_id=opt_result["debug"]["trace_id"],
                 stats=opt_result["stats"],
                 provider=request.provider,
-                model=request.model
+                model=request.model,
+                endpoint="/v1/chat"
             )
 
         # Build response
