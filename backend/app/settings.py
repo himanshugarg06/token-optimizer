@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # Observability
     log_level: str = "INFO"
 
+    # Operational flags
+    run_migrations_on_startup: bool = False
+
     # Nested configurations for new features
     semantic: SemanticConfig = Field(default_factory=SemanticConfig)
     compression: CompressionConfig = Field(default_factory=CompressionConfig)

@@ -367,8 +367,8 @@ async def startup_event():
     """Application startup handler."""
     logger.info("Token Optimizer Middleware starting...")
 
-    # Run migrations if semantic retrieval enabled
-    if settings.semantic.enabled and settings.semantic.postgres_url:
+    # Run migrations if enabled
+    if settings.run_migrations_on_startup and settings.semantic.enabled and settings.semantic.postgres_url:
         try:
             from app.storage.migration_runner import run_migrations_from_settings
             logger.info("Running database migrations...")
