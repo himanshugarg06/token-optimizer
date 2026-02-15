@@ -427,11 +427,13 @@ def apply_heuristics(blocks: List[Block], config: dict) -> List[Block]:
     keep_n = config.get("keep_last_n_turns", 4)
     blocks = keep_last_n_turns(blocks, n=keep_n)
 
-    # Stage 4: Extract constraints
+    # Stage 4: Extract constraints (only keep if it reduces tokens)
     constraint_block = extract_constraints(blocks)
     if constraint_block:
-        # Add constraint block at the beginning
-        blocks = [constraint_block] + blocks
+        tokens_before_constraints = count_tokens(blocks)
+        candidate = [constraint_block] + blocks
+        if count_tokens(candidate) <= tokens_before_constraints:
+            blocks = candidate
 
     # Stage 5: Minimize tool schemas (if enabled)
     if config.get("enable_tool_minimization", True):
