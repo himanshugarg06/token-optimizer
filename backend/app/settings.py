@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     max_input_tokens: int = 8000
     keep_last_n_turns: int = 2
     safety_margin_tokens: int = 300
+    # If optimization doesn't save at least this many tokens, return the original messages.
+    # Useful to avoid regressions from heuristics that can sometimes increase tokens.
+    min_tokens_saved: int = 0
+    # If optimization doesn't save at least this fraction (0.0-1.0), return original messages.
+    # Example: 0.05 => require at least 5% savings.
+    min_savings_ratio: float = 0.0
 
     # Observability
     log_level: str = "INFO"

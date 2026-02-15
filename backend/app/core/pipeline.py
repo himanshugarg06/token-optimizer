@@ -296,6 +296,25 @@ class OptimizationPipeline:
         # Convert back to messages
         optimized_messages = blocks_to_messages(blocks)
 
+        # If optimization didn't meaningfully help, return the original messages.
+        # This prevents heuristics (e.g., constraint extraction) from increasing tokens
+        # or producing negligible savings.
+        min_tokens_saved = int(config.get("min_tokens_saved", 0) or 0)
+        min_savings_ratio = float(config.get("min_savings_ratio", 0.0) or 0.0)
+        tokens_saved = tokens_before - tokens_after
+        savings_ratio = (tokens_saved / tokens_before) if tokens_before else 0.0
+
+        fallback_to_original = (tokens_saved < min_tokens_saved) or (savings_ratio < min_savings_ratio)
+        if fallback_to_original:
+            # Revert to the original input message list (no docs/tools are ever forwarded as messages).
+            optimized_messages = messages
+            blocks = canonicalize(messages, tools, rag_context, tool_outputs, model)
+            tokens_after = tokens_before
+            tokens_saved = 0
+            savings_ratio = 0.0
+            route_stages.append("original")
+            features_used["fallback_to_original"] = True
+
         # Build stats
         latency_ms = int((time.time() - start_time) * 1000)
         route = "+".join(route_stages)
@@ -303,11 +322,11 @@ class OptimizationPipeline:
         stats = {
             "tokens_before": tokens_before,
             "tokens_after": tokens_after,
-            "tokens_saved": tokens_before - tokens_after,
+            "tokens_saved": tokens_saved,
             "compression_ratio": format_compression_ratio(tokens_before, tokens_after),
             "cache_hit": False,
             "route": route,
-            "fallback_used": fallback_used,
+            "fallback_used": (fallback_used or bool(features_used.get("fallback_to_original"))),
             "latency_ms": latency_ms
         }
 

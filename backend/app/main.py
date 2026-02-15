@@ -122,7 +122,9 @@ async def optimize_endpoint(
         base_config = {
             "max_input_tokens": request.max_tokens or settings.max_input_tokens,
             "keep_last_n_turns": settings.keep_last_n_turns,
-            "safety_margin_tokens": settings.safety_margin_tokens
+            "safety_margin_tokens": settings.safety_margin_tokens,
+            "min_tokens_saved": settings.min_tokens_saved,
+            "min_savings_ratio": settings.min_savings_ratio,
         }
 
         # Merge configs: base <- dashboard <- request
@@ -230,7 +232,9 @@ async def chat_endpoint(
         base_config = {
             "max_input_tokens": request.max_tokens or settings.max_input_tokens,
             "keep_last_n_turns": settings.keep_last_n_turns,
-            "safety_margin_tokens": settings.safety_margin_tokens
+            "safety_margin_tokens": settings.safety_margin_tokens,
+            "min_tokens_saved": settings.min_tokens_saved,
+            "min_savings_ratio": settings.min_savings_ratio,
         }
         config = merge_config(base_config, dashboard_config, request.user_prefs_overrides)
 
