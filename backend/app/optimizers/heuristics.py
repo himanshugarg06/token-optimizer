@@ -111,7 +111,7 @@ def clean_whitespace(blocks: List[Block], config: dict) -> List[Block]:
 
 def remove_junk(blocks: List[Block]) -> List[Block]:
     """
-    Remove empty/whitespace blocks.
+    Remove empty/whitespace blocks and trivial filler.
 
     Args:
         blocks: Input blocks
@@ -130,6 +130,10 @@ def remove_junk(blocks: List[Block]) -> List[Block]:
         # Check if empty or whitespace-only
         content = block.content.strip()
         if not content:
+            continue
+
+        # Drop very short non-must_keep blocks (likely greetings/acks)
+        if len(content.split()) < 5:
             continue
 
         # Check common junk patterns
@@ -573,7 +577,7 @@ def apply_heuristics(blocks: List[Block], config: dict) -> List[Block]:
 
     # Stage 6: Trim logs in long assistant blocks
     for i, block in enumerate(blocks):
-        if block.type == BlockType.ASSISTANT and block.tokens > 500:
+        if block.type == BlockType.ASSISTANT and block.tokens > 200:
             # Check if it looks like logs (has multiple lines with log patterns)
             if "\n" in block.content and any(
                 keyword in block.content

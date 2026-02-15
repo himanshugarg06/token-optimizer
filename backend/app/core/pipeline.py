@@ -226,6 +226,29 @@ class OptimizationPipeline:
         features_used["must_keep_exceeds_budget"] = bool(must_keep_tokens > (max_tokens - safety_margin))
         features_used["over_budget"] = bool(tokens_after_heuristics > max_tokens)
 
+        # Fallback shrink: if nothing reduced yet and we have optional blocks,
+        # drop oldest optional blocks until we save ~10% tokens.
+        if tokens_after_heuristics >= tokens_before and optional_tokens > 0:
+            target_tokens = max(tokens_before - max(1, int(tokens_before * 0.1)), 0)
+            pruned_blocks: List[Block] = []
+            current_tokens = 0
+            for block in blocks:
+                if block.must_keep:
+                    pruned_blocks.append(block)
+                    current_tokens += block.tokens
+                    continue
+
+                # Keep optional blocks only if we still need their tokens to reach target
+                if current_tokens + block.tokens <= target_tokens:
+                    pruned_blocks.append(block)
+                    current_tokens += block.tokens
+                # else skip to reduce size
+
+            if pruned_blocks:
+                blocks = pruned_blocks
+                tokens_after_heuristics = total_tokens(blocks)
+                features_used["fallback_used"] = True
+
         semantic_can_help = (
             self.settings.semantic.enabled
             and tokens_after_heuristics > max_tokens
