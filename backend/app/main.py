@@ -330,24 +330,9 @@ async def health():
     if dashboard_client and dashboard_client.enabled:
         dashboard_status = "configured"
 
-    # Check semantic availability
-    semantic_available = False
-    compression_available = False
-    if settings.semantic.enabled:
-        try:
-            from app.optimizers.semantic import EmbeddingService
-            emb_service = EmbeddingService(settings.semantic)
-            semantic_available = emb_service.available
-        except Exception:
-            pass
-
-    if settings.compression.enabled:
-        try:
-            from app.optimizers.compress import LLMLinguaCompressor
-            compressor = LLMLinguaCompressor(settings.compression)
-            compression_available = compressor.available
-        except Exception:
-            pass
+    # Lightweight capability flags (avoid heavyweight model loads in healthcheck)
+    semantic_available = settings.semantic.enabled
+    compression_available = settings.compression.enabled
 
     return HealthResponse(
         status="healthy" if cache_manager.available else "degraded",
