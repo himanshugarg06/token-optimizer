@@ -1,13 +1,12 @@
 'use client'
 
 import { signIn, useSession } from 'next-auth/react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect } from 'react'
 
-export default function SignInPage() {
+function SignInContent() {
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
 
   useEffect(() => {
@@ -72,5 +71,19 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-black">
+          <p className="text-zinc-500">Loading...</p>
+        </div>
+      }
+    >
+      <SignInContent />
+    </Suspense>
   )
 }
