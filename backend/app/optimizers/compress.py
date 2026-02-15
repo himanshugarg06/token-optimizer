@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Optional, List, Tuple, Dict
 
-from app.core.blocks import Block
+from app.core.blocks import Block, BlockType
 from app.settings import CompressionConfig
 
 logger = logging.getLogger(__name__)
@@ -75,9 +75,17 @@ class LLMLinguaCompressor:
         if ratio is None:
             ratio = self.config.compression_ratio
 
-        # Don't compress must_keep or already compressed
-        if block.must_keep or block.compressed:
-            return block, {"skipped": True}
+        # Never compress system/constraint blocks (high risk of changing behavior).
+        if block.type in (BlockType.SYSTEM, BlockType.CONSTRAINT):
+            return block, {"skipped": True, "reason": "protected_type"}
+
+        # Don't compress must_keep unless explicitly allowed.
+        if block.must_keep and not self.config.allow_must_keep:
+            return block, {"skipped": True, "reason": "must_keep"}
+
+        # Don't double-compress.
+        if block.compressed:
+            return block, {"skipped": True, "reason": "already_compressed"}
 
         # Don't compress short blocks (not worth it)
         if block.tokens < 100:

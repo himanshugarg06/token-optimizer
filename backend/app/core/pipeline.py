@@ -155,6 +155,24 @@ class OptimizationPipeline:
         trace_id = str(uuid.uuid4())
         stage_timings = {}
         route_stages = ["heuristic"]
+        features_used: Dict[str, Any] = {
+            "semantic_enabled": bool(self.settings.semantic.enabled),
+            "compression_enabled": bool(self.settings.compression.enabled),
+            "compression_allow_must_keep": bool(getattr(self.settings.compression, "allow_must_keep", False)),
+            # Filled in as the request executes:
+            "embedding_model_available": False,
+            "pgvector_available": False,
+            "over_budget": False,
+            "semantic_triggered": False,  # semantic executed
+            "semantic_effective": False,
+            "compression_triggered": False,  # compression executed
+            "compression_effective": False,
+            "must_keep_tokens": 0,
+            "optional_tokens": 0,
+            "must_keep_exceeds_budget": False,
+            # Note: current semantic stage does not use pgvector; it embeds in-memory.
+            "pgvector_used": False,
+        }
 
         # Generate cache key
         cache_key = None
@@ -174,6 +192,8 @@ class OptimizationPipeline:
                 cached_result["stats"]["cache_hit"] = True
                 cached_result["stats"]["latency_ms"] = int((time.time() - start_time) * 1000)
                 cached_result["debug"]["trace_id"] = trace_id
+                # Backfill newer debug fields for older cached entries.
+                cached_result["debug"].setdefault("features_used", {"from_cache": True})
                 return cached_result["optimized_messages"], cached_result
 
         # Stage 0: Canonicalize
@@ -196,24 +216,64 @@ class OptimizationPipeline:
         max_tokens = config.get("max_input_tokens", self.settings.max_input_tokens)
         safety_margin = config.get("safety_margin_tokens", self.settings.safety_margin_tokens)
 
-        if self.settings.semantic.enabled and tokens_after_heuristics > max_tokens:
+        # Record eligibility details for later debugging.
+        must_keep_tokens = sum(b.tokens for b in blocks if b.must_keep)
+        optional_tokens = sum(b.tokens for b in blocks if not b.must_keep)
+        features_used["must_keep_tokens"] = int(must_keep_tokens)
+        features_used["optional_tokens"] = int(optional_tokens)
+        features_used["must_keep_exceeds_budget"] = bool(must_keep_tokens > (max_tokens - safety_margin))
+        features_used["over_budget"] = bool(tokens_after_heuristics > max_tokens)
+
+        semantic_can_help = (
+            self.settings.semantic.enabled
+            and tokens_after_heuristics > max_tokens
+            and optional_tokens > 0
+            and not features_used["must_keep_exceeds_budget"]
+        )
+
+        if semantic_can_help:
+            features_used["semantic_triggered"] = True
             t0 = time.time()
             blocks = await self._apply_semantic(blocks, max_tokens, safety_margin, model)
             stage_timings["semantic"] = int((time.time() - t0) * 1000)
             tokens_after_semantic = total_tokens(blocks)
             logger.info(f"After semantic: {len(blocks)} blocks, {tokens_after_semantic} tokens")
             route_stages.append("semantic")
+            features_used["semantic_effective"] = bool(tokens_after_semantic < tokens_after_heuristics)
+
+            # If semantic was triggered, embedding service may have been attempted/loaded.
+            if self._embedding_service_attempted and self._embedding_service is not None:
+                features_used["embedding_model_available"] = bool(self._embedding_service.available)
         else:
             tokens_after_semantic = tokens_after_heuristics
 
         # Stage 3: Compression (if enabled and still over budget)
-        if self.settings.compression.enabled and tokens_after_semantic > max_tokens:
+        allow_compress_must_keep = bool(getattr(self.settings.compression, "allow_must_keep", False))
+        compressible_exists = any(
+            (b.tokens >= 100)
+            and (allow_compress_must_keep or (not b.must_keep))
+            and (b.type.value not in ("system", "constraint"))
+            for b in blocks
+        )
+        compression_can_help = (
+            self.settings.compression.enabled
+            and tokens_after_semantic > max_tokens
+            and compressible_exists
+            and (allow_compress_must_keep or (not features_used["must_keep_exceeds_budget"]))
+        )
+
+        if compression_can_help:
+            features_used["compression_triggered"] = True
             t0 = time.time()
             blocks = self._apply_compression(blocks)
             stage_timings["compression"] = int((time.time() - t0) * 1000)
             tokens_after_compression = total_tokens(blocks)
             logger.info(f"After compression: {len(blocks)} blocks, {tokens_after_compression} tokens")
             route_stages.append("compression")
+            features_used["compression_effective"] = bool(tokens_after_compression < tokens_after_semantic)
+
+            if self._compressor_attempted and self._compressor is not None:
+                features_used["compression_model_available"] = bool(self._compressor.available)
         else:
             tokens_after_compression = tokens_after_semantic
 
@@ -282,7 +342,8 @@ class OptimizationPipeline:
                 "trace_id": trace_id,
                 "config_resolved": config,
                 "dashboard": {},
-                "stage_timings_ms": stage_timings
+                "stage_timings_ms": stage_timings,
+                "features_used": features_used,
             }
         }
 
@@ -312,6 +373,7 @@ class OptimizationPipeline:
             if not self.embedding_service or not self.embedding_service.available:
                 logger.warning("Embedding service unavailable, skipping semantic retrieval")
                 return blocks
+            # NOTE: pgvector VectorStore is not currently used in this semantic stage.
 
             if not self.utility_scorer:
                 logger.warning("Utility scorer unavailable, skipping semantic retrieval")

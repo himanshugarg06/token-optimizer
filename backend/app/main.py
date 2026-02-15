@@ -1,6 +1,7 @@
 """FastAPI application - Token Optimizer Middleware."""
 
 import logging
+import importlib.util
 from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import PlainTextResponse, Response
@@ -37,6 +38,12 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Avoid doing heavyweight model initialization (SentenceTransformers / LLMLingua)
+# in health checks; those can take tens of seconds and will block a single-worker
+# event loop if done inline.
+def _module_available(module_name: str) -> bool:
+    return importlib.util.find_spec(module_name) is not None
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -295,7 +302,8 @@ async def chat_endpoint(
             usage=ProviderUsage(**provider_response["usage"]),
             optimizer={
                 "stats": opt_result["stats"],
-                "trace_id": opt_result["debug"]["trace_id"]
+                "trace_id": opt_result["debug"]["trace_id"],
+                "features_used": opt_result.get("debug", {}).get("features_used", {}),
             }
         )
 
@@ -336,9 +344,18 @@ async def health():
     if dashboard_client and dashboard_client.enabled:
         dashboard_status = "configured"
 
-    # Lightweight capability flags (avoid heavyweight model loads in healthcheck)
-    semantic_available = settings.semantic.enabled
-    compression_available = settings.compression.enabled
+    # "Available" here means "configured and dependencies are importable".
+    # Do not instantiate models (they download/load large weights and can hang).
+    semantic_available = bool(
+        settings.semantic.enabled
+        and settings.semantic.postgres_url
+        and _module_available("sentence_transformers")
+    )
+
+    compression_available = bool(
+        settings.compression.enabled
+        and (_module_available("llmlingua") or _module_available("sumy"))
+    )
 
     return HealthResponse(
         status="healthy" if cache_manager.available else "degraded",

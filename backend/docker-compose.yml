@@ -19,13 +19,14 @@ services:
       - SEMANTIC__ENABLED=true
       - SEMANTIC__POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/optimizer
       - COMPRESSION__ENABLED=true
+      - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-true}
 
       # Legacy flags (backward compatibility) - set to true to enable
       - ENABLE_SEMANTIC_RETRIEVAL=true
       - ENABLE_TOON_COMPRESSION=true
-      - MAX_INPUT_TOKENS=8000
-      - KEEP_LAST_N_TURNS=4
-      - SAFETY_MARGIN_TOKENS=300
+      - MAX_INPUT_TOKENS=${MAX_INPUT_TOKENS:-8000}
+      - KEEP_LAST_N_TURNS=${KEEP_LAST_N_TURNS:-2}
+      - SAFETY_MARGIN_TOKENS=${SAFETY_MARGIN_TOKENS:-300}
       - LOG_LEVEL=INFO
     depends_on:
       redis:

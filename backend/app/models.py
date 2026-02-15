@@ -49,6 +49,7 @@ class DebugInfo(BaseModel):
     config_resolved: Dict[str, Any]
     dashboard: Dict[str, bool]
     stage_timings_ms: Dict[str, int]
+    features_used: Dict[str, Any] = Field(default_factory=dict, description="Per-request feature usage flags")
 
 
 class OptimizeResponse(BaseModel):

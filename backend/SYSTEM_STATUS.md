@@ -219,7 +219,8 @@ If you want pgvector on Railway:
    COPY . .
 
    # Run
-   CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+   # Use a shell so $PORT expands (Railway injects PORT at runtime).
+   CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
    ```
 
 3. Set Railway build command:

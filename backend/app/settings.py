@@ -30,6 +30,9 @@ class CompressionConfig(BaseModel):
     faithfulness_threshold: float = 0.85
     device: str = "cpu"
     fallback_to_extractive: bool = True
+    # Aggressive token-saving option: allow compressing must_keep blocks when needed.
+    # System/constraint blocks are still never compressed.
+    allow_must_keep: bool = False
     force_tokens: List[str] = Field(default_factory=lambda: ["\n", ".", "!", "?", "```", ":", ";"])
 
 
@@ -73,7 +76,7 @@ class Settings(BaseSettings):
 
     # Optimization Parameters
     max_input_tokens: int = 8000
-    keep_last_n_turns: int = 4
+    keep_last_n_turns: int = 2
     safety_margin_tokens: int = 300
 
     # Observability
