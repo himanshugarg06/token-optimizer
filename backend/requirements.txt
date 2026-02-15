@@ -12,8 +12,18 @@ tiktoken==0.7.0
 # Caching
 redis==5.0.0
 
-# Database (optional, for future semantic retrieval)
+# Database
 psycopg2-binary==2.9.10
+
+# Semantic retrieval
+pgvector==0.2.5
+sentence-transformers==2.7.0
+numpy==1.26.4
+
+# Compression
+# llmlingua==0.2.2  # Optional, install separately if available
+sumy==0.11.0  # Fallback extractive summarization
+nltk==3.8.1
 
 # Observability
 prometheus-client==0.21.0

@@ -312,17 +312,48 @@ async def health():
     # Check Redis
     redis_status = "connected" if cache_manager.available else "disconnected"
 
+    # Check Postgres
+    postgres_status = None
+    if settings.semantic.enabled and settings.semantic.postgres_url:
+        try:
+            from app.optimizers.semantic import VectorStore
+            test_store = VectorStore(settings.semantic.postgres_url)
+            postgres_status = "connected" if test_store.available else "disconnected"
+        except Exception:
+            postgres_status = "error"
+
     # Check Dashboard
     dashboard_status = None
     if dashboard_client and dashboard_client.enabled:
         dashboard_status = "configured"
 
+    # Check semantic availability
+    semantic_available = False
+    compression_available = False
+    if settings.semantic.enabled:
+        try:
+            from app.optimizers.semantic import EmbeddingService
+            emb_service = EmbeddingService(settings.semantic)
+            semantic_available = emb_service.available
+        except Exception:
+            pass
+
+    if settings.compression.enabled:
+        try:
+            from app.optimizers.compress import LLMLinguaCompressor
+            compressor = LLMLinguaCompressor(settings.compression)
+            compression_available = compressor.available
+        except Exception:
+            pass
+
     return HealthResponse(
         status="healthy" if cache_manager.available else "degraded",
         redis=redis_status,
-        postgres=None,  # Not used yet
+        postgres=postgres_status,
         dashboard=dashboard_status,
-        timestamp=datetime.utcnow().isoformat() + "Z"
+        timestamp=datetime.utcnow().isoformat() + "Z",
+        semantic_available=semantic_available,
+        compression_available=compression_available
     )
 
 
@@ -341,13 +372,27 @@ async def metrics():
 async def startup_event():
     """Application startup handler."""
     logger.info("Token Optimizer Middleware starting...")
+
+    # Run migrations if semantic retrieval enabled
+    if settings.semantic.enabled and settings.semantic.postgres_url:
+        try:
+            from app.storage.migration_runner import run_migrations_from_settings
+            logger.info("Running database migrations...")
+            success = run_migrations_from_settings(settings)
+            if success:
+                logger.info("Database migrations completed successfully")
+            else:
+                logger.warning("Database migrations failed, semantic retrieval may not work")
+        except Exception as e:
+            logger.error(f"Migration runner failed: {e}")
+
     logger.info(f"Redis: {'connected' if cache_manager.available else 'unavailable'}")
     logger.info(f"Dashboard integration: {'enabled' if settings.dashboard_enabled else 'disabled'}")
     logger.info(f"Mock dashboard: {'enabled' if settings.mock_dashboard else 'disabled'}")
     logger.info(f"OpenAI provider: {'configured' if openai_provider else 'not configured'}")
     logger.info(f"Anthropic provider: {'configured' if anthropic_provider else 'not configured'}")
-    logger.info(f"Semantic retrieval: {'enabled' if settings.enable_semantic_retrieval else 'disabled'}")
-    logger.info(f"TOON compression: {'enabled' if settings.enable_toon_compression else 'disabled'}")
+    logger.info(f"Semantic retrieval: {'enabled' if settings.semantic.enabled else 'disabled'}")
+    logger.info(f"Compression: {'enabled' if settings.compression.enabled else 'disabled'}")
 
 
 @app.on_event("shutdown")

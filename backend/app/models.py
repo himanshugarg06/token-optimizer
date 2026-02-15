@@ -95,4 +95,6 @@ class HealthResponse(BaseModel):
     redis: Optional[str] = None
     postgres: Optional[str] = None
     dashboard: Optional[str] = None
+    semantic_available: bool = False
+    compression_available: bool = False
     timestamp: str

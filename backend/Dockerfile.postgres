@@ -1,0 +1,15 @@
+FROM pgvector/pgvector:pg16
+
+# Railway requires these environment variables
+ENV POSTGRES_DB=railway
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+# Expose port
+EXPOSE 5432
+
+# Copy initialization scripts (optional)
+COPY app/storage/migrations/*.sql /docker-entrypoint-initdb.d/
+
+# Start postgres
+CMD ["postgres"]

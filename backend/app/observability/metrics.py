@@ -75,10 +75,15 @@ def record_optimization(stats: dict, endpoint: str = "optimize"):
     # Increment request counter
     requests_total.labels(endpoint=endpoint, status="success").inc()
 
-    # Record token metrics
-    tokens_before = stats.get("tokens_before", 0)
-    tokens_after = stats.get("tokens_after", 0)
-    tokens_saved = stats.get("tokens_saved", 0)
+    # Record token metrics (ensure they are integers)
+    try:
+        tokens_before = int(stats.get("tokens_before", 0)) if stats.get("tokens_before") is not None else 0
+        tokens_after = int(stats.get("tokens_after", 0)) if stats.get("tokens_after") is not None else 0
+        tokens_saved = int(stats.get("tokens_saved", 0)) if stats.get("tokens_saved") is not None else 0
+    except (ValueError, TypeError):
+        tokens_before = 0
+        tokens_after = 0
+        tokens_saved = 0
 
     # Only increment with non-negative values (Prometheus requirement)
     if tokens_before > 0:

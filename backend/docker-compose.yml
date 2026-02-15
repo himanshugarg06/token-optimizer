@@ -15,8 +15,14 @@ services:
       - DASHBOARD_API_KEY=${DASHBOARD_API_KEY:-dev-key-12345}
       - DASHBOARD_ENABLED=${DASHBOARD_ENABLED:-true}
       - MOCK_DASHBOARD=${MOCK_DASHBOARD:-true}
-      - ENABLE_SEMANTIC_RETRIEVAL=false
-      - ENABLE_TOON_COMPRESSION=false
+      # New nested configuration format
+      - SEMANTIC__ENABLED=true
+      - SEMANTIC__POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/optimizer
+      - COMPRESSION__ENABLED=true
+
+      # Legacy flags (backward compatibility) - set to true to enable
+      - ENABLE_SEMANTIC_RETRIEVAL=true
+      - ENABLE_TOON_COMPRESSION=true
       - MAX_INPUT_TOKENS=8000
       - KEEP_LAST_N_TURNS=4
       - SAFETY_MARGIN_TOKENS=300
@@ -40,7 +46,7 @@ services:
       retries: 5
 
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16  # Changed from postgres:16 to support vector operations
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

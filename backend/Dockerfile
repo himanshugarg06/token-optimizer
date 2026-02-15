@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app /app/app
 COPY tests /app/tests
+COPY run_migrations.py /app/
 
 # Expose port
 EXPOSE 8000
