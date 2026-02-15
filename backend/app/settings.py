@@ -1,5 +1,6 @@
 """Application settings using pydantic-settings."""
 
+import os
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, Dict, List
@@ -98,11 +99,13 @@ class Settings(BaseSettings):
 
     def model_post_init(self, __context):
         """Post-initialization to handle backward compatibility."""
-        # If legacy flags are set, use them to override nested configs
-        if self.enable_semantic_retrieval is not None:
+        # Backward compatibility:
+        # If the new nested env vars are NOT set, allow legacy flags to control behavior.
+        # If nested env vars ARE set, they take precedence over legacy flags.
+        if self.enable_semantic_retrieval is not None and os.getenv("SEMANTIC__ENABLED") is None:
             self.semantic.enabled = self.enable_semantic_retrieval
 
-        if self.enable_toon_compression is not None:
+        if self.enable_toon_compression is not None and os.getenv("COMPRESSION__ENABLED") is None:
             self.compression.enabled = self.enable_toon_compression
 
         if self.postgres_url is not None and self.semantic.postgres_url is None:
