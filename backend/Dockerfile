@@ -18,8 +18,8 @@ COPY app /app/app
 COPY tests /app/tests
 COPY run_migrations.py /app/
 
-# Expose port
+# Expose port (informational; platform will map $PORT)
 EXPOSE 8000
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application on the port provided by the platform (default 8000)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
