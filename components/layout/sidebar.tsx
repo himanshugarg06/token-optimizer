@@ -6,12 +6,10 @@ import { signOut, useSession } from 'next-auth/react'
 import {
   LayoutDashboard,
   BarChart3,
-  DollarSign,
-  ScrollText,
   Key,
   Settings,
   LogOut,
-  FileText,
+  FlaskConical,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,14 +18,13 @@ const navigation = [
     section: 'BUILD',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Playground', href: '/dashboard/playground', icon: FlaskConical },
     ],
   },
   {
     section: 'ANALYTICS',
     items: [
       { name: 'Usage', href: '/dashboard/analytics/usage', icon: BarChart3 },
-      { name: 'Cost', href: '/dashboard/analytics/cost', icon: DollarSign },
-      { name: 'Logs', href: '/dashboard/analytics/logs', icon: ScrollText },
     ],
   },
   {
@@ -82,16 +79,8 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Documentation & User */}
+      {/* User */}
       <div className="border-t border-zinc-800 p-4">
-        <Link
-          href="#"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
-        >
-          <FileText className="h-4 w-4" />
-          Documentation
-        </Link>
-
         {session?.user && (
           <div className="mt-4 border-t border-zinc-800 pt-4">
             <div className="flex items-center justify-between gap-3 px-3 py-2">
