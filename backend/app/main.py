@@ -143,7 +143,7 @@ async def optimize_endpoint(
         )
 
         # Add API key prefix to stats for downstream logging/ingestion
-        opt_result["stats"]["api_key_prefix"] = api_key[:12]
+        result["stats"]["api_key_prefix"] = api_key[:12]
 
         # Record metrics
         record_optimization(result["stats"], endpoint="optimize")

@@ -16,14 +16,16 @@ services:
       - DASHBOARD_ENABLED=${DASHBOARD_ENABLED:-true}
       - MOCK_DASHBOARD=${MOCK_DASHBOARD:-true}
       # New nested configuration format
-      - SEMANTIC__ENABLED=true
-      - SEMANTIC__POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/optimizer
-      - COMPRESSION__ENABLED=true
+      # Fast-iteration defaults: keep heavyweight model features off unless explicitly enabled.
+      - SEMANTIC__ENABLED=${SEMANTIC__ENABLED:-false}
+      - SEMANTIC__POSTGRES_URL=${SEMANTIC__POSTGRES_URL:-postgresql://postgres:postgres@postgres:5432/optimizer}
+      # Enable compression by default (uses extractive fallback if LLMLingua not installed).
+      - COMPRESSION__ENABLED=${COMPRESSION__ENABLED:-true}
       - COMPRESSION__ALLOW_MUST_KEEP=${COMPRESSION__ALLOW_MUST_KEEP:-true}
 
       # Legacy flags (backward compatibility) - set to true to enable
-      - ENABLE_SEMANTIC_RETRIEVAL=true
-      - ENABLE_TOON_COMPRESSION=true
+      - ENABLE_SEMANTIC_RETRIEVAL=${ENABLE_SEMANTIC_RETRIEVAL:-false}
+      - ENABLE_TOON_COMPRESSION=${ENABLE_TOON_COMPRESSION:-false}
       - MAX_INPUT_TOKENS=${MAX_INPUT_TOKENS:-8000}
       - KEEP_LAST_N_TURNS=${KEEP_LAST_N_TURNS:-2}
       - SAFETY_MARGIN_TOKENS=${SAFETY_MARGIN_TOKENS:-300}
