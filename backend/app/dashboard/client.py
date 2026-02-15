@@ -27,7 +27,11 @@ class DashboardClient:
             api_key: API key for authentication
             enabled: Whether dashboard integration is enabled
         """
-        self.base_url = base_url.rstrip("/")
+        # Normalize base URL. If user passes .../api, strip it so we can append /api/v1/...
+        normalized = base_url.rstrip("/")
+        if normalized.endswith("/api"):
+            normalized = normalized[:-4]
+        self.base_url = normalized
         self.api_key = api_key
         self.enabled = enabled
 
@@ -57,7 +61,7 @@ class DashboardClient:
             return None
 
         try:
-            url = f"{self.base_url}/api/config/{tenant_id}/{project_id}"
+            url = f"{self.base_url}/api/v1/config/{tenant_id}/{project_id}"
             headers = {"X-API-Key": self.api_key}
 
             response = await self.http.get(url, headers=headers)
@@ -87,7 +91,7 @@ class DashboardClient:
             return
 
         try:
-            url = f"{self.base_url}/api/events"
+            url = f"{self.base_url}/api/v1/events"
             headers = {
                 "X-API-Key": self.api_key,
                 "X-Source": "token-optimizer-middleware",

@@ -135,6 +135,9 @@ async def optimize_endpoint(
             model=request.model
         )
 
+        # Add API key prefix to stats for downstream logging/ingestion
+        opt_result["stats"]["api_key_prefix"] = api_key[:12]
+
         # Record metrics
         record_optimization(result["stats"], endpoint="optimize")
 
@@ -257,6 +260,9 @@ async def chat_endpoint(
             model=request.model,
             **provider_kwargs
         )
+
+        # Add API key prefix to stats for downstream logging/ingestion
+        opt_result["stats"]["api_key_prefix"] = api_key[:12]
 
         # Record metrics
         record_optimization(opt_result["stats"], endpoint="chat")
