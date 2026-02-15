@@ -3,6 +3,10 @@ version: '3.8'
 services:
   token-optimizer:
     environment:
+      # Demo/local: avoid external dashboard calls/noise unless you run a dashboard service.
+      DASHBOARD_ENABLED: "false"
+      MOCK_DASHBOARD: "true"
+      DASHBOARD_BASE_URL: "http://token-optimizer:8000"
       # Demo: force aggressive input shrinking so token savings are obvious.
       # Use explicit values (not ${VAR:-default}) so this file is not affected by a
       # repo/root .env or shell-exported variables.

@@ -2,7 +2,7 @@
 
 from typing import List, Tuple
 from app.core.blocks import Block, BlockType
-from app.core.utils import total_tokens
+from app.core.utils import total_tokens, head_tail_truncate, count_tokens
 import logging
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,33 @@ def apply_fallback(blocks: List[Block], config: dict) -> Tuple[List[Block], bool
 
     if not is_valid:
         logger.error(f"Fallback still invalid: {errors}")
-        # Last resort: return original must_keep blocks only
+        # Last resort: if still over budget, deterministically truncate the largest
+        # non-system/constraint block (prefer the last user) to fit within budget.
+        max_tokens = int(config.get("max_input_tokens", 8000))
+        safety_margin = int(config.get("safety_margin_tokens", 300))
+        safety_margin = min(safety_margin, max_tokens // 4)
+        budget = max(1, max_tokens - safety_margin)
+        model = config.get("model", "gpt-4")  # optional; passed by pipeline when available
+
+        candidates = [b for b in fallback_blocks if b.type not in (BlockType.SYSTEM, BlockType.CONSTRAINT)]
+        if candidates:
+            # Prefer last user block if present, else largest by tokens.
+            user_blocks = [b for b in candidates if b.type == BlockType.USER]
+            target = user_blocks[-1] if user_blocks else max(candidates, key=lambda b: b.tokens)
+
+            other_tokens = sum(b.tokens for b in fallback_blocks if b.id != target.id)
+            remaining = max(1, budget - other_tokens)
+            truncated = head_tail_truncate(target.content, remaining, model=model, head_frac=0.4)
+            target.content = truncated
+            target.tokens = count_tokens(truncated, model=model)
+            target.metadata["truncated_to_budget"] = True
+
+            is_valid2, errors2 = validate(fallback_blocks, config)
+            if is_valid2:
+                return fallback_blocks, True
+            logger.error(f"Truncation fallback still invalid: {errors2}")
+
+        # Final last resort: return must_keep blocks only (may still be over budget).
         return [b for b in blocks if b.must_keep], True
 
     return fallback_blocks, True

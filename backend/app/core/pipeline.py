@@ -304,12 +304,15 @@ class OptimizationPipeline:
 
         # Stage 4: Validation
         t0 = time.time()
-        is_valid, errors = validate(blocks, config)
+        # Provide model to validators/fallback logic that may need tokenizer behavior.
+        config_with_model = {**config, "model": model}
+
+        is_valid, errors = validate(blocks, config_with_model)
         fallback_used = False
 
         if not is_valid:
             logger.warning(f"Validation failed: {errors}")
-            blocks, fallback_used = apply_fallback(blocks, config)
+            blocks, fallback_used = apply_fallback(blocks, config_with_model)
             logger.info(f"Fallback applied: {len(blocks)} blocks")
 
         stage_timings["validate"] = int((time.time() - t0) * 1000)

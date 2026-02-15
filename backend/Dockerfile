@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# NLTK data used by sumy tokenizer fallback (TextRank).
+ENV NLTK_DATA=/usr/local/nltk_data
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -12,6 +15,9 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download NLTK punkt so extractive summarization works in minimal containers.
+RUN python -c "import nltk; nltk.download('punkt', download_dir='${NLTK_DATA}', quiet=True)"
 
 # Copy application code
 COPY app /app/app

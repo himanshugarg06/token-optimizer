@@ -6,11 +6,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Create router for mock endpoints
-mock_router = APIRouter(prefix="/mock")
+# Create router for mock endpoints.
+# We expose both:
+# - /api/v1/...  (what DashboardClient calls)
+# - /mock/v1/... (legacy/local testing)
+api_router = APIRouter(prefix="/api/v1")
+mock_router = APIRouter(prefix="/mock/v1")
 
-
-@mock_router.get("/v1/config/{tenant_id}/{project_id}")
+@api_router.get("/config/{tenant_id}/{project_id}")
+@mock_router.get("/config/{tenant_id}/{project_id}")
 async def mock_get_config(
     tenant_id: str,
     project_id: str,
@@ -44,7 +48,8 @@ async def mock_get_config(
     }
 
 
-@mock_router.post("/v1/events")
+@api_router.post("/events")
+@mock_router.post("/events")
 async def mock_emit_event(
     event: dict,
     x_api_key: Optional[str] = Header(None),

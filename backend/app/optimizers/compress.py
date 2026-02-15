@@ -336,5 +336,30 @@ class ExtractiveSummarizer:
             return " ".join(str(s) for s in summary_sentences)
 
         except Exception as e:
+            # Common failure in minimal containers: missing NLTK punkt.
+            msg = str(e)
             logger.error(f"Extractive summarization failed: {e}")
-            return content
+
+            # Best-effort: if punkt is missing, try downloading once at runtime.
+            if "Resource" in msg and "punkt" in msg:
+                try:
+                    import nltk
+                    nltk.download("punkt", quiet=True)
+                    parser = self.parser_class.from_string(content, self.tokenizer_class("english"))
+                    sentences = list(parser.document.sentences)
+                    target_count = max(1, int(len(sentences) * ratio))
+                    summary_sentences = self.summarizer(parser.document, target_count)
+                    return " ".join(str(s) for s in summary_sentences)
+                except Exception:
+                    pass
+
+            # Deterministic fallback that preserves tail instructions:
+            # keep a head+tail slice by token budget (approx) so the end-of-message
+            # constraints like "IMPORTANT:" survive.
+            try:
+                from app.core.utils import head_tail_truncate, count_tokens
+                orig_tokens = max(1, count_tokens(content, model="gpt-4"))
+                target_tokens = max(32, int(orig_tokens * max(0.05, min(ratio, 1.0))))
+                return head_tail_truncate(content, target_tokens, model="gpt-4", head_frac=0.35)
+            except Exception:
+                return content

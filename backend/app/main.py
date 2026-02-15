@@ -26,7 +26,7 @@ from app.core.pipeline import optimize
 from app.optimizers.cache import CacheManager
 from app.dashboard.client import DashboardClient
 from app.dashboard.config_merger import merge_config, map_dashboard_config_to_optimizer
-from app.dashboard.mock_server import mock_router
+from app.dashboard.mock_server import mock_router, api_router
 from app.observability.events import emit_optimization_event
 from app.observability.metrics import record_optimization, get_metrics, CONTENT_TYPE_LATEST
 from app.providers.openai_provider import OpenAIProvider
@@ -78,6 +78,7 @@ if settings.anthropic_api_key:
 
 # Mount mock dashboard router if enabled
 if settings.mock_dashboard:
+    app.include_router(api_router)
     app.include_router(mock_router)
 
 
