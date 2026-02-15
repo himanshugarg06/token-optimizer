@@ -132,9 +132,10 @@ def remove_junk(blocks: List[Block]) -> List[Block]:
         if not content:
             continue
 
-        # Drop very short non-must_keep blocks (likely greetings/acks)
-        if len(content.split()) < 5:
-            continue
+        # Drop very short assistant filler (but keep meaningful short content).
+        if block.type == BlockType.ASSISTANT and len(content.split()) < 5:
+            if re.match(r"^(ok(ay)?|thanks|thank you|sure|got it|done|great)\b", content, re.IGNORECASE):
+                continue
 
         # Check common junk patterns
         junk_patterns = [
