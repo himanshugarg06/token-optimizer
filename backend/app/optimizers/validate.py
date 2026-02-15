@@ -34,8 +34,11 @@ def validate(blocks: List[Block], config: dict) -> Tuple[bool, List[str]]:
         errors.append("Missing system or user message")
 
     # Check 3: Token budget satisfied
-    max_tokens = config.get("max_input_tokens", 8000)
-    safety_margin = config.get("safety_margin_tokens", 300)
+    max_tokens = int(config.get("max_input_tokens", 8000))
+    safety_margin = int(config.get("safety_margin_tokens", 300))
+    # Guardrail: for tiny budgets, cap safety margin so validation doesn't fail
+    # purely due to a large static reserve.
+    safety_margin = min(safety_margin, max_tokens // 4)
     total = total_tokens(blocks)
 
     if total > max_tokens - safety_margin:

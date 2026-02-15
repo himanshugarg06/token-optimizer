@@ -76,8 +76,14 @@ def tools_to_blocks(tools: Optional[Dict[str, Any]], model: str = "gpt-4") -> Li
 
     blocks = []
 
-    # Simple serialization of tool schema
-    content = str(tools)
+    # Serialize as JSON so downstream minimizers can parse and reduce it.
+    # Use compact encoding to reduce tokens even before minimization.
+    import json
+    try:
+        content = json.dumps(tools, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    except TypeError:
+        # Fallback for non-serializable tool schemas.
+        content = str(tools)
     tokens = count_tokens(content, model)
 
     block = Block.create(

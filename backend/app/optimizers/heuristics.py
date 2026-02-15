@@ -149,10 +149,25 @@ def extract_constraints(blocks: List[Block]) -> Optional[Block]:
     Returns:
         Constraint block if found, else None
     """
+    # Extract "hard constraints" into a dedicated block, but be conservative:
+    # - require ALL-CAPS keywords to avoid pulling in prose ("Must-keep", etc.)
+    # - cap sentence length to avoid duplicating huge blocks
     constraint_keywords = [
-        "MUST", "MUST NOT", "ALWAYS", "NEVER",
-        "REQUIRED", "FORBIDDEN", "ONLY",
-        "FORMAT", "JSON", "OUTPUT", "DEADLINE"
+        "MUST NOT",
+        "MUST",
+        "ALWAYS",
+        "NEVER",
+        "REQUIRED",
+        "FORBIDDEN",
+        "ONLY",
+        "FORMAT",
+        "JSON",
+        "OUTPUT",
+        "DEADLINE",
+    ]
+
+    keyword_patterns = [
+        re.compile(rf"\b{re.escape(kw)}\b") for kw in constraint_keywords
     ]
 
     # Collect sentences with constraints
@@ -166,23 +181,40 @@ def extract_constraints(blocks: List[Block]) -> Optional[Block]:
         sentences = re.split(r'[.!?]\s+', content)
 
         for sentence in sentences:
-            # Check if sentence contains constraint keywords
-            if any(kw in sentence.upper() for kw in constraint_keywords):
-                constraint_sentences.append(sentence.strip())
+            s = sentence.strip()
+            # Skip extremely long sentences; these are usually not actual "constraints".
+            if len(s) > 400:
+                continue
+            # Require ALL-CAPS matches.
+            if any(p.search(s) for p in keyword_patterns):
+                constraint_sentences.append(s)
 
     if not constraint_sentences:
         return None
 
-    # Create constraint block
-    constraint_content = "\n".join(constraint_sentences)
+    # De-duplicate while keeping order.
+    seen = set()
+    deduped = []
+    for s in constraint_sentences:
+        if s in seen:
+            continue
+        seen.add(s)
+        deduped.append(s)
+
+    constraint_content = "\n".join(deduped)
 
     # Use utility import to avoid circular dependency
     from app.core.utils import count_tokens
 
+    # Hard cap to avoid duplicating a massive section into an extra must_keep block.
+    constraint_tokens = count_tokens(constraint_content)
+    if constraint_tokens > 200:
+        return None
+
     constraint_block = Block.create(
         block_type=BlockType.CONSTRAINT,
         content=constraint_content,
-        tokens=count_tokens(constraint_content),
+        tokens=constraint_tokens,
         must_keep=True,
         priority=1.0,
         source="extracted_constraints"

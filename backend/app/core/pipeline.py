@@ -215,6 +215,8 @@ class OptimizationPipeline:
         # Stage 2: Semantic retrieval (if enabled and over budget)
         max_tokens = config.get("max_input_tokens", self.settings.max_input_tokens)
         safety_margin = config.get("safety_margin_tokens", self.settings.safety_margin_tokens)
+        # Guardrail: don't let safety margin dominate tiny budgets.
+        safety_margin = min(int(safety_margin), int(max_tokens // 4))
 
         # Record eligibility details for later debugging.
         must_keep_tokens = sum(b.tokens for b in blocks if b.must_keep)
@@ -494,7 +496,18 @@ async def optimize(
 
     Creates a pipeline instance and runs optimization.
     """
+    # Reuse a single pipeline instance per process to avoid repeatedly loading
+    # heavyweight models (sentence-transformers / llmlingua) on every request.
     from app.settings import settings
 
-    pipeline = OptimizationPipeline(settings, cache_manager)
+    global _PIPELINE_SINGLETON  # type: ignore[var-annotated]
+    try:
+        pipeline = _PIPELINE_SINGLETON
+    except NameError:
+        pipeline = None
+
+    if pipeline is None or getattr(pipeline, "cache_manager", None) is not cache_manager:
+        pipeline = OptimizationPipeline(settings, cache_manager)
+        _PIPELINE_SINGLETON = pipeline
+
     return await pipeline.optimize(messages, config, tools, rag_context, tool_outputs, model)

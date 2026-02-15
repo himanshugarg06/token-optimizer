@@ -40,17 +40,29 @@ class CacheManager:
         Returns:
             SHA256 hash of request + config
         """
-        # Create stable key from request and config
+        # Create stable key from request inputs that affect canonicalization + config.
+        # Important: include tools/rag_context/tool_outputs fingerprints; otherwise cache
+        # hits can return incorrect optimizations for different retrieval contexts.
+        def _fingerprint(obj: Any) -> str:
+            try:
+                s = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+            except TypeError:
+                # Best-effort fallback for non-JSON-serializable objects.
+                s = repr(obj)
+            return hashlib.sha256(s.encode()).hexdigest()
+
         key_data = {
-            "messages": request.get("messages", []),
+            "messages_fp": _fingerprint(request.get("messages", [])),
+            "tools_fp": _fingerprint(request.get("tools")),
+            "rag_fp": _fingerprint(request.get("rag_context")),
+            "tool_outputs_fp": _fingerprint(request.get("tool_outputs")),
             "model": request.get("model"),
-            "max_tokens": config.get("max_input_tokens"),
-            "keep_n_turns": config.get("keep_last_n_turns")
+            # Config: include full config fingerprint, not just a subset.
+            "config_fp": _fingerprint(config),
         }
 
-        key_str = json.dumps(key_data, sort_keys=True)
-        hash_obj = hashlib.sha256(key_str.encode())
-        return f"opt:cache:{hash_obj.hexdigest()[:16]}"
+        key_str = json.dumps(key_data, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        return f"opt:cache:{hashlib.sha256(key_str.encode()).hexdigest()[:16]}"
 
     def get_cached(self, key: str) -> Optional[Dict[str, Any]]:
         """
