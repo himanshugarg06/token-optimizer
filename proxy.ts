@@ -14,5 +14,7 @@ export const config = {
     '/api/keys/:path((?!validate).*)',
     '/api/rules/:path*',
     '/api/analytics/:path*',
+    // Protect future /api/v1 routes but leave events/config open for backend ingestion
+    '/api/v1/:path((?!events)(?!config).*)',
   ],
 }
