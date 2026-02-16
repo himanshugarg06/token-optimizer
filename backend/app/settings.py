@@ -91,6 +91,9 @@ class Settings(BaseSettings):
 
     # Operational flags
     run_migrations_on_startup: bool = False
+    # Demo-only: if true, API responses may report synthetic token savings.
+    # Keep this off in real deployments; it will mislead debugging and analytics.
+    demo_simulate_savings: bool = False
 
     # Nested configurations for new features
     semantic: SemanticConfig = Field(default_factory=SemanticConfig)

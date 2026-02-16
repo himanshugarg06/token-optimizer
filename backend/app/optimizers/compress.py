@@ -317,6 +317,16 @@ class ExtractiveSummarizer:
             return content
 
         try:
+            # TextRank over very large blobs is slow and can dominate end-to-end latency.
+            # For big inputs, do a cheap head/tail cut that preserves tail instructions.
+            from app.core.utils import count_tokens, head_tail_truncate
+            orig_tokens = count_tokens(content, model="gpt-4")
+            if orig_tokens > 2000:
+                target_tokens = max(64, int(orig_tokens * max(0.05, min(float(ratio or 0.5), 1.0))))
+                # Cap to keep this fallback fast and predictable.
+                target_tokens = min(target_tokens, 1200)
+                return head_tail_truncate(content, target_tokens, model="gpt-4", head_frac=0.35)
+
             from io import StringIO
 
             # Parse content

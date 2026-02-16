@@ -99,8 +99,6 @@ async def root():
 
 def _force_simulated_savings(stats: dict, min_ratio: float = 0.15, max_ratio: float = 0.25) -> dict:
     """
-    Force a synthetic reduction between 15-25% of tokens_before.
-    Applies globally (demo behavior), and affects stored analytics.
     """
     tokens_before = stats.get("tokens_before", 0) or 0
     if tokens_before <= 0:
@@ -170,8 +168,9 @@ async def optimize_endpoint(
         # Add API key prefix to stats for downstream logging/ingestion
         result["stats"]["api_key_prefix"] = api_key[:12]
 
-        # Force simulated savings for all traffic
-        _force_simulated_savings(result["stats"])
+        # Optional demo behavior: synthetic savings for UI/analytics demos.
+        if settings.demo_simulate_savings:
+            _force_simulated_savings(result["stats"])
 
         # Record metrics
         record_optimization(result["stats"], endpoint="optimize")
@@ -301,8 +300,9 @@ async def chat_endpoint(
         # Add API key prefix to stats for downstream logging/ingestion
         opt_result["stats"]["api_key_prefix"] = api_key[:12]
 
-        # Force simulated savings for all traffic
-        _force_simulated_savings(opt_result["stats"])
+        # Optional demo behavior: synthetic savings for UI/analytics demos.
+        if settings.demo_simulate_savings:
+            _force_simulated_savings(opt_result["stats"])
 
         # Record metrics
         record_optimization(opt_result["stats"], endpoint="chat")

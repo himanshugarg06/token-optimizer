@@ -109,6 +109,132 @@ def clean_whitespace(blocks: List[Block], config: dict) -> List[Block]:
     return cleaned
 
 
+def _looks_code_like(text: str) -> bool:
+    if not text:
+        return False
+    if "```" in text:
+        return True
+    # Heuristic: lots of braces/slashes or JSON-ish content.
+    sym = sum(text.count(ch) for ch in "{}[]()<>\\/|")
+    return sym >= 12
+
+
+def _split_sentences_simple(text: str) -> List[str]:
+    # Keep this conservative; we only use it for cheap redundancy removal.
+    s = (text or "").replace("\n", " ").strip()
+    if not s:
+        return []
+    parts = re.split(r"(?<=[.!?])\s+", s)
+    return [p.strip() for p in parts if p and p.strip()]
+
+
+def collapse_redundant_text(blocks: List[Block], config: dict) -> List[Block]:
+    """
+    Cheap redundancy removal inside blocks:
+    - remove consecutive duplicate sentences
+    - remove a short sentence if it is an exact suffix of the previous sentence
+    - collapse "one sentence repeated N times" blobs into a single sentence + marker
+    """
+    if not config.get("enable_redundancy_collapse", True):
+        return blocks
+
+    from app.core.utils import count_tokens
+
+    out: List[Block] = []
+    for b in blocks:
+        # Only touch user/assistant/doc content; never system/constraint.
+        if b.type.value in ("system", "constraint"):
+            out.append(b)
+            continue
+
+        content = b.content or ""
+        if len(content) < 24 or _looks_code_like(content):
+            out.append(b)
+            continue
+
+        # Preserve tail instructions if present.
+        tail_start = None
+        for marker in ("IMPORTANT:", "INSTRUCTIONS:", "MUST:", "DO NOT", "NEVER"):
+            idx = content.rfind(marker)
+            if idx != -1 and idx > max(0, len(content) - 8000):
+                tail_start = idx if (tail_start is None) else min(tail_start, idx)
+        body = content if tail_start is None else content[:tail_start]
+        tail = "" if tail_start is None else content[tail_start:]
+
+        sentences = _split_sentences_simple(body)
+        if len(sentences) < 2:
+            out.append(b)
+            continue
+
+        # 1) Drop consecutive duplicates.
+        deduped: List[str] = []
+        last_norm = None
+        for s in sentences:
+            norm = re.sub(r"\s+", " ", s).strip().lower()
+            if norm and norm == last_norm:
+                continue
+            deduped.append(s)
+            last_norm = norm
+
+        # 2) Drop short redundant suffix sentence (e.g. "Hi how are you? How are you?")
+        pruned: List[str] = []
+        prev = ""
+        for s in deduped:
+            s_norm = re.sub(r"\s+", " ", s).strip().lower()
+            prev_norm = re.sub(r"\s+", " ", prev).strip().lower()
+            if prev_norm and s_norm and prev_norm.endswith(s_norm):
+                # Keep this very conservative.
+                if 1 <= len(s_norm.split()) <= 6 and len(prev_norm.split()) <= 24:
+                    continue
+            pruned.append(s)
+            prev = s
+
+        # 3) If overwhelmingly the same sentence repeated, collapse.
+        collapsed = pruned
+        min_sentences = int(config.get("redundancy_collapse_min_sentences", 50))
+        if len(pruned) >= min_sentences:
+            counts = defaultdict(int)
+            orig = {}
+            for s in pruned:
+                norm = re.sub(r"\s+", " ", s).strip().lower()
+                if not norm:
+                    continue
+                counts[norm] += 1
+                orig.setdefault(norm, s.strip())
+            if counts:
+                top_norm, top_count = max(counts.items(), key=lambda kv: kv[1])
+                top_ratio = top_count / max(1, len(pruned))
+                if top_count >= 10 and top_ratio >= float(config.get("redundancy_collapse_top_ratio", 0.65)):
+                    collapsed = [f"{orig[top_norm]} (repeated {top_count} times)"]
+
+        new_body = " ".join(collapsed).strip()
+        new_content = (new_body + (" " if (new_body and tail and not tail.startswith("\n")) else "") + tail).strip()
+
+        if new_content == content:
+            out.append(b)
+            continue
+
+        # Only accept if it reduces tokens meaningfully.
+        old_toks = b.tokens
+        new_toks = count_tokens(new_content)
+        if new_toks >= old_toks:
+            out.append(b)
+            continue
+
+        meta = dict(b.metadata)
+        meta["redundancy_collapsed"] = True
+        out.append(Block.create(
+            block_type=b.type,
+            content=new_content,
+            tokens=new_toks,
+            must_keep=b.must_keep,
+            priority=b.priority,
+            **meta,
+        ))
+
+    return out
+
+
 def remove_junk(blocks: List[Block]) -> List[Block]:
     """
     Remove empty/whitespace blocks and trivial filler.
@@ -555,6 +681,9 @@ def apply_heuristics(blocks: List[Block], config: dict) -> List[Block]:
     """
     # Stage 0: Whitespace cleanup (very conservative)
     blocks = clean_whitespace(blocks, config)
+
+    # Stage 0.5: Collapse cheap redundancy inside blocks
+    blocks = collapse_redundant_text(blocks, config)
 
     # Stage 1: Remove junk
     blocks = remove_junk(blocks)
